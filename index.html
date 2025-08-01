@@ -86,7 +86,7 @@
       });
 
     function searchContact() {
-      const phone = document.getElementById('phoneInput').value.trim();
+      const phoneInput = document.getElementById('phoneInput').value.trim();
       const cardContainer = document.getElementById('card-container');
       const cardInfo = document.getElementById('card-info');
 
@@ -95,7 +95,14 @@
         return;
       }
 
-      const record = excelData.find(entry => entry.Contact.toString() === phone);
+      // Normalize phone number: remove +91 and spaces
+      const normalizedPhone = phoneInput.replace(/^\+91\s?|\s/g, '');
+      const record = excelData.find(entry => {
+        const contact = entry.Contact.toString().replace(/^\+91\s?|\s/g, '');
+        return contact === normalizedPhone || 
+               contact === `+91${normalizedPhone}` || 
+               contact === `+91 ${normalizedPhone}`;
+      });
 
       if (record) {
         const events = record.Events || '';
@@ -134,4 +141,4 @@
     }
   </script>
 </body>
-</html> 
+</html>
