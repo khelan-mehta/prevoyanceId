@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ID Card Generator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #f0f0f0;
+      }
+      #search-container {
+        margin: 20px;
+      }
+      #card-container {
+        position: relative;
+        width: 400px;
+        height: 550px;
+        display: none;
+        margin-bottom: 20px;
+      }
+      #card-image {
+        width: 100%;
+        height: 100%;
+      }
+      #card-info {
+        position: absolute;
+        bottom: 20px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: white;
+        font-size: 22px;
+        font-weight: 600;
+        padding: 0 10px;
+        line-height: 1.6;
+        text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+      }
+      input,
+      button {
+        padding: 10px;
+        margin: 5px;
+        font-size: 16px;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #update-button {
+        background-color: #2196f3;
+      }
+      #update-button:hover {
+        background-color: #1976d2;
+      }
+
+      /* Modal styles */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: none;
+        border-radius: 8px;
+        width: 400px;
+        max-width: 90%;
+        text-align: center;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .close:hover {
+        color: black;
+      }
+      #file-input {
+        margin: 10px 0;
+        padding: 8px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .modal input[type="password"] {
+        width: 100%;
+        box-sizing: border-box;
+        margin: 10px 0;
+      }
+      .button-group {
+        margin-top: 15px;
+      }
+      .button-group button {
+        margin: 0 5px;
+      }
+      #cancel-button {
+        background-color: #f44336;
+      }
+      #cancel-button:hover {
+        background-color: #d32f2f;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="search-container">
+      <input type="text" id="phoneInput" placeholder="Enter phone number" />
+      <button onclick="searchContact()">Search</button>
+      <button onclick="downloadCard()">Download ID Card</button>
+      <button id="update-button" onclick="openUpdateModal()">
+        Update Excel File
+      </button>
+    </div>
+    <div id="card-container">
+      <img id="card-image" src="1.png" alt="ID Card Background" />
+      <div id="card-info"></div>
+    </div>
+
+    <!-- Update Excel Modal -->
+    <div id="updateModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeUpdateModal()">&times;</span>
+        <h3>Update Excel File</h3>
+        <p>Enter password to update the Excel file:</p>
+        <input
+          type="password"
+          id="passwordInput"
+          placeholder="Enter password"
+        />
+        <div id="file-section" style="display: none">
+          <p>Select new Excel file:</p>
+          <input type="file" id="file-input" accept=".xlsx,.xls" />
+        </div>
+        <div class="button-group">
+          <button onclick="verifyPassword()">Verify Password</button>
+          <button
+            id="upload-button"
+            onclick="uploadFile()"
+            style="display: none"
+          >
+            Upload File
+          </button>
+          <button id="cancel-button" onclick="closeUpdateModal()">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+      let excelData = [];
+      const ADMIN_PASSWORD = "admin123"; // Change this to your desired password
+
+      // Load participants.xlsx by default
+      fetch("participants.xlsx")
+        .then((response) => response.arrayBuffer())
+        .then((data) => {
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          excelData = XLSX.utils.sheet_to_json(sheet);
+        })
+        .catch((error) => {
+          console.error("Error loading participants.xlsx:", error);
+          alert(
+            "Failed to load participants.xlsx. Please ensure the file is in the correct directory."
+          );
+        });
+
+      function searchContact() {
+        const phone = document.getElementById("phoneInput").value.trim();
+        const cardContainer = document.getElementById("card-container");
+        const cardInfo = document.getElementById("card-info");
+
+        if (!excelData.length) {
+          alert("Excel data is not loaded yet. Please try again shortly.");
+          return;
+        }
+
+        const record = excelData.find(
+          (entry) => entry.Contact.toString() === phone
+        );
+
+        if (record) {
+          const events = record.Events || "";
+          const team = record["TeamName"] || "";
+          const name = record.Name || "";
+          const contact = record.Contact || "";
+          const college = record.College || "";
+
+          cardInfo.innerHTML = `
+          ${events}<br><br>
+          Team: ${team}<br>
+          Name: ${name}<br>
+          Contact: ${contact}<br>
+          College: ${college}
+        `;
+          cardContainer.style.display = "block";
+        } else {
+          alert("No record found for this phone number.");
+          cardContainer.style.display = "none";
+        }
+      }
+
+      function downloadCard() {
+        const cardContainer = document.getElementById("card-container");
+        if (cardContainer.style.display === "none") {
+          alert("Please search and generate an ID card first.");
+          return;
+        }
+
+        html2canvas(cardContainer).then((canvas) => {
+          const link = document.createElement("a");
+          link.download = "ID_Card.png";
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        });
+      }
+
+      function openUpdateModal() {
+        document.getElementById("updateModal").style.display = "block";
+        document.getElementById("passwordInput").focus();
+      }
+
+      function closeUpdateModal() {
+        document.getElementById("updateModal").style.display = "none";
+        document.getElementById("passwordInput").value = "";
+        document.getElementById("file-section").style.display = "none";
+        document.getElementById("upload-button").style.display = "none";
+        document.getElementById("file-input").value = "";
+      }
+
+      function verifyPassword() {
+        const password = document.getElementById("passwordInput").value;
+        if (password === ADMIN_PASSWORD) {
+          document.getElementById("file-section").style.display = "block";
+          document.getElementById("upload-button").style.display =
+            "inline-block";
+          alert("Password verified! Please select an Excel file to upload.");
+        } else {
+          alert("Incorrect password. Access denied.");
+          document.getElementById("passwordInput").value = "";
+        }
+      }
+
+      function uploadFile() {
+        const fileInput = document.getElementById("file-input");
+        const file = fileInput.files[0];
+
+        if (!file) {
+          alert("Please select a file first.");
+          return;
+        }
+
+        if (!file.name.match(/\.(xlsx|xls)$/)) {
+          alert("Please select a valid Excel file (.xlsx or .xls).");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const newData = XLSX.utils.sheet_to_json(sheet);
+
+            // Validate the data structure
+            if (newData.length > 0) {
+              const requiredColumns = [
+                "Contact",
+                "Events",
+                "TeamName",
+                "Name",
+                "College",
+              ];
+              const firstRow = newData[0];
+              const hasRequiredColumns = requiredColumns.every(
+                (col) => col in firstRow
+              );
+
+              if (hasRequiredColumns) {
+                excelData = newData;
+                alert(
+                  `Excel file updated successfully! Loaded ${excelData.length} records.`
+                );
+                closeUpdateModal();
+              } else {
+                alert(
+                  "Invalid Excel file format. Required columns: Contact, Events, TeamName, Name, College"
+                );
+              }
+            } else {
+              alert("Excel file appears to be empty.");
+            }
+          } catch (error) {
+            console.error("Error reading Excel file:", error);
+            alert(
+              "Error reading Excel file. Please ensure it's a valid Excel file."
+            );
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      // Close modal when clicking outside of it
+      window.onclick = function (event) {
+        const modal = document.getElementById("updateModal");
+        if (event.target === modal) {
+          closeUpdateModal();
+        }
+      };
+
+      // Allow Enter key to verify password
+      document.addEventListener("DOMContentLoaded", function () {
+        document
+          .getElementById("passwordInput")
+          .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+              verifyPassword();
+            }
+          });
+      });
+    </script>
+  </body>
+</html>
