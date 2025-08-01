@@ -95,29 +95,33 @@
         return;
       }
 
-      // Normalize phone number: remove +91 and spaces
-      const normalizedPhone = phoneInput.replace(/^\+91\s?|\s/g, '');
-      const record = excelData.find(entry => {
-        const contact = entry.Contact.toString().replace(/^\+91\s?|\s/g, '');
+      // Normalize phone number: remove +91, spaces, and other non-digits
+      const normalizedPhone = phoneInput.replace(/^\+91\s?|\s|\D/g, '');
+      const matchingRecords = excelData.filter(entry => {
+        const contact = entry.Contact ? entry.Contact.toString().replace(/^\+91\s?|\s|\D/g, '') : '';
         return contact === normalizedPhone || 
                contact === `+91${normalizedPhone}` || 
                contact === `+91 ${normalizedPhone}`;
       });
 
-      if (record) {
-        const events = record.Events || '';
-        const team = record['TeamName'] || '';
-        const name = record.Name || '';
-        const contact = record.Contact || '';
-        const college = record.College || '';
+      if (matchingRecords.length > 0) {
+        // Aggregate events across all matching records
+        const aggregatedEvents = [...new Set(matchingRecords.flatMap(record => 
+          record.Events ? record.Events.split(',').map(event => event.trim()) : []
+        ))].join(', ');
 
-        cardInfo.innerHTML = `
-          ${events}<br><br>
-          Team: ${team}<br>
-          Name: ${name}<br>
-          Contact: ${contact}<br>
-          College: ${college}
-        `;
+        // Use the first record for other fields, or aggregate if needed
+        const firstRecord = matchingRecords[0];
+        let infoHtml = '';
+        for (const [key, value] of Object.entries(firstRecord)) {
+          if (value && key !== 'Events') { // Exclude Events from individual display
+            infoHtml += `${key}: ${value}<br>`;
+          }
+        }
+        // Prepend aggregated events
+        infoHtml = `Events: ${aggregatedEvents || 'None'}<br><br>${infoHtml}`;
+        
+        cardInfo.innerHTML = infoHtml || 'No data available';
         cardContainer.style.display = 'block';
       } else {
         alert('No record found for this phone number.');
